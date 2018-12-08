@@ -32,6 +32,30 @@ def getPath(path):
 
 buildroot    = getPath(settings.buildroot)
 buildsymlink = getPath(settings.buildsymlink)
+srcroot      = getPath(settings.srcroot)
+
+def getFileList():
+    from glob import glob
+    fileList = [y for x in os.walk(srcroot) for y in glob(os.path.join(x[0], '*.cpp'))]
+    fileList.sort()
+    return fileList
+
+def saveFileList(builddir):
+    fileList = getFileList()
+    fileListPathName = os.path.join(builddir, "._file-list_.txt")
+    fileListPathNameNew = fileListPathName + ".new"
+    with open(fileListPathNameNew, 'w') as f:
+        for name in fileList:
+            f.write("{}\n".format(name))
+    if not os.path.exists(fileListPathName):
+        os.rename(fileListPathNameNew, fileListPathName)
+        return True
+
+    import filecmp
+    isEqual = filecmp.cmp(fileListPathNameNew, fileListPathName)
+    os.remove(fileListPathName)
+    os.rename(fileListPathNameNew, fileListPathName)
+    return not isEqual
 
 def doBuild(buildtype):
     params = getattr(settings, buildtype)
@@ -52,19 +76,27 @@ def doBuild(buildtype):
 
     #builddir = os.path.join(buildroot, buildtype)
     builddir = os.path.join(buildroot, "%s-%s" % (buildtype, params['toolset']))
-    if not os.path.exists(builddir):
-        os.makedirs(builddir)
 
-    mesonargs = params['meson-args']
-    mesonargs = mesonargs + " --buildtype=" + buildtype
-    cmdline = """
-        export {env};
-        cd {mesondir};
-        {prefixrun} meson {mesonargs} {blddir};
-        cd {blddir};
-        {prefixrun} ninja;
-        """.format(env = env, mesondir = currentdir, mesonargs = mesonargs, blddir = builddir,
-            prefixrun = params['prefix-run'])
+    cmdline = ""
+    if not os.path.exists(builddir):
+        mesonargs = params['meson-args']
+        mesonargs = mesonargs + " --buildtype=" + buildtype
+        cmdline = """
+            cd {mesondir};
+            {env} {prefixrun} meson {mesonargs} {blddir};
+            """.format(env = env, mesondir = currentdir, mesonargs = mesonargs, blddir = builddir,
+                prefixrun = params['prefix-run'])
+
+        os.makedirs(builddir)
+        saveFileList(builddir)
+    else:
+        listWasChanged = saveFileList(builddir)
+        if listWasChanged:
+            # touch file meson.build
+            os.utime(os.path.join(currentdir, 'meson.build'), None)
+
+    cmdline = """ {cmdline} cd {blddir}; {prefixrun} ninja;
+        """.format(cmdline = cmdline, blddir = builddir, prefixrun = params['prefix-run'])
 
     rv = subprocess.call(cmdline, shell = True)
     return rv

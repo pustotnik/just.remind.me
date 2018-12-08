@@ -3,6 +3,7 @@
 
 buildroot    = "/tmp/$USER/projects/just.remind.me/build-out"
 buildsymlink = "../build-out"
+srcroot      = "../src"
 
 debug = {
     'toolset'    : 'clang',
