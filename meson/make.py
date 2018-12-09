@@ -36,13 +36,23 @@ buildsymlink = getPath(settings.buildsymlink)
 srcroot      = getPath(settings.srcroot)
 
 def getFileList():
-    # I know this is not fastest way but it works in any version of python
+    # I know this is not fastest method but it works in any version of python and in any OS
     from glob import glob
     fileList = [y for x in os.walk(srcroot) for y in glob(os.path.join(x[0], '*.cpp'))]
     fileList.sort()
     return fileList
 
 def saveFileList(builddir):
+    """
+    I don't agree with the position of developers of Meson and CMake that
+    specifying target files with a wildcard is a bad thing. For example authors of Meson wrote
+    that it is not fast. Yes, I agree that for big projects with a lot of files it can be slow in
+    some cases. But for all others it can be fast enough. Why didn't they make it as option?
+    I don't know. Variant with external command doesn't work very well and authors of Meson know
+    about it. So I needed to make my own solution for that. It is not the best solution
+    because it is not integrated in Meson, but it works very well for my case.
+    """
+
     fileList = getFileList()
     fileListPathName = os.path.join(builddir, "._file-list_.txt")
     fileListPathNameNew = fileListPathName + ".new"
@@ -58,18 +68,19 @@ def saveFileList(builddir):
     os.rename(fileListPathNameNew, fileListPathName)
     return not isEqual
 
-def genMesonCmdLine(buildparams, builddir, mesoncmd):
+def genMesonCmdLine(toolset, buildparams, builddir, mesoncmd):
 
     env = ''
-    if buildparams['toolset'] == 'clang':
+    if toolset == 'clang':
         env = "CC=clang CXX=clang++"
-    elif buildparams['toolset'] == 'gcc':
+    elif toolset == 'gcc':
         env = "CC=gcc CXX=g++"
     else:
-        print("Unknown toolset: %s" % buildparams['toolset'])
+        print("Unknown toolset: %s" % toolset)
 
-    env = env + ' CXXFLAGS="%s"' % buildparams['cxx-flags']
-    mesonargs = buildparams['meson-args']
+    env = env + ' CXXFLAGS="%s"' % buildparams.cxxflags
+    env = env + ' LDFLAGS="%s"' % buildparams.linkflags
+    mesonargs = buildparams.mesonargs
 
     # I use 'plain' because for 'debug' and 'release' buid types meson
     # thinks that it knows which flags I need better than me
@@ -79,12 +90,14 @@ def genMesonCmdLine(buildparams, builddir, mesoncmd):
         cd {mesondir};
         {env} {prefixrun} {mesoncmd} {mesonargs} {blddir};
         """.format(env = env, mesondir = currentdir, mesonargs = mesonargs, mesoncmd = mesoncmd,
-            blddir = builddir, prefixrun = buildparams['prefix-run'])
+            blddir = builddir, prefixrun = buildparams.prefixrun)
 
     return cmdline
 
 def doBuild(buildtype):
-    params = getattr(settings, buildtype)
+
+    buildtype, toolset = buildtype.split('-', 2)
+    params = getattr(getattr(settings, buildtype), toolset)
 
     if not os.path.exists(buildroot):
         os.makedirs(buildroot)
@@ -92,7 +105,7 @@ def doBuild(buildtype):
         os.symlink(buildroot, buildsymlink)
 
     #builddir = os.path.join(buildroot, buildtype)
-    builddir = os.path.join(buildroot, "%s-%s" % (buildtype, params['toolset']))
+    builddir = os.path.join(buildroot, "%s-%s" % (buildtype, toolset))
     lastSettingsFilePath    = os.path.join(builddir, 'settings.py')
     currentSettingsFilePath = os.path.join(currentdir, 'settings.py')
 
@@ -107,14 +120,14 @@ def doBuild(buildtype):
             shutil.rmtree(builddir, ignore_errors = True)
 
     if not os.path.exists(builddir):
-        cmdline = genMesonCmdLine(params, builddir, 'meson')
+        cmdline = genMesonCmdLine(toolset, params, builddir, 'meson')
         os.makedirs(builddir)
         saveFileList(builddir)
 
     shutil.copy2(currentSettingsFilePath, lastSettingsFilePath)
 
     cmdline = """ {cmdline} cd {blddir}; {prefixrun} ninja;
-        """.format(cmdline = cmdline, blddir = builddir, prefixrun = params['prefix-run'])
+        """.format(cmdline = cmdline, blddir = builddir, prefixrun = params.prefixrun)
 
     rv = subprocess.call(cmdline, shell = True)
     return rv
@@ -134,17 +147,14 @@ def run(args):
     if args.action == 'cleanup':
         return doCleanUp()
 
-    if args.action in ('debug', 'release'):
-        return doBuild(args.action)
-
-    print("Unknown action: %s" % args.action)
-    return 1
+    return doBuild(args.action)
 
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", nargs='?', choices=['debug', 'release', 'cleanup'], \
-        default='debug', help = "target action, 'debug' by default")
+    parser.add_argument("action", nargs='?', \
+        choices=['debug-gcc', 'debug-clang', 'release-gcc', 'release-clang', 'cleanup'], \
+        default='debug-gcc', help = "target action, 'debug-gcc' is using by default")
 
     args = parser.parse_args()
     return run(args)

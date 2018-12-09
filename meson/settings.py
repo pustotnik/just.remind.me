@@ -1,6 +1,11 @@
 # coding=utf8
 #
 
+from collections import namedtuple
+
+BuildParams   = namedtuple('BuildParams', 'prefixrun, mesonargs, cxxflags, linkflags')
+BuildTypeConf = namedtuple('BuildTypeConf', 'gcc, clang')
+
 buildroot    = "/tmp/$USER/projects/just.remind.me/build-out"
 buildsymlink = "../build-out"
 srcroot      = "../src"
@@ -10,17 +15,37 @@ common = {
                     ' -Wunreachable-code -Wvla',
 }
 
-debug = {
-    'toolset'    : 'clang',
-    #'prefix-run' : 'scan-build',
-    'prefix-run' : '',
-    'meson-args' : '',
-    'cxx-flags'  : '%s %s' % (common['cxx-flags'], '-O0 -g'),
-}
+debug = BuildTypeConf(
+    gcc = BuildParams (
+        prefixrun = 'scan-build',
+        #prefixrun = '',
+        mesonargs = '',
+        cxxflags  = '%s %s' % (common['cxx-flags'], '-O0 -g -fno-omit-frame-pointer'),
+        linkflags = '',
+    ),
+    clang = BuildParams (
+        prefixrun = 'scan-build',
+        #prefixrun = '',
+        mesonargs = '',
+        cxxflags  = '%s %s' % (common['cxx-flags'], '-O1 -g -fno-omit-frame-pointer -fsanitize=address'),
+        linkflags = '',
+        # meson pushs cxxflags to ldflags (why?) and as result the adding of -fsanitize=address here produces
+        # warning "DEPRECATION: Duplicated values in array option "cpp_link_args" is deprecated"
+        #linkflags = '-fsanitize=address',
+    ),
+)
 
-release = {
-    'toolset' : "gcc",
-    'prefix-run' : '',
-    'meson-args' : '--unity on',
-    'cxx-flags'  : '%s %s' % (common['cxx-flags'], '-O2'),
-}
+release = BuildTypeConf(
+    gcc = BuildParams (
+        prefixrun = '',
+        mesonargs = '--unity on',
+        cxxflags  = '%s %s' % (common['cxx-flags'], '-O2'),
+        linkflags = '',
+    ),
+    clang = BuildParams (
+        prefixrun = '',
+        mesonargs = '--unity on',
+        cxxflags  = '%s %s' % (common['cxx-flags'], '-O2'),
+        linkflags = '',
+    ),
+)
