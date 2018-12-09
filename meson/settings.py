@@ -15,7 +15,7 @@ debug = {
     #'prefix-run' : 'scan-build',
     'prefix-run' : '',
     'meson-args' : '',
-    'cxx-flags'  : '%s %s' % (common['cxx-flags'], '-O1 -g'),
+    'cxx-flags'  : '%s %s' % (common['cxx-flags'], '-O0 -g'),
 }
 
 release = {

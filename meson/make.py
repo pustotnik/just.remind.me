@@ -101,7 +101,6 @@ def doBuild(buildtype):
         needToConfigure = saveFileList(builddir)
         if not needToConfigure:
             needToConfigure = not filecmp.cmp(currentSettingsFilePath, lastSettingsFilePath)
-        shutil.copy2(currentSettingsFilePath, lastSettingsFilePath)
 
         if needToConfigure:
             # touching of meson.build doesn't work for my case so I need to delete build directory
@@ -111,7 +110,8 @@ def doBuild(buildtype):
         cmdline = genMesonCmdLine(params, builddir, 'meson')
         os.makedirs(builddir)
         saveFileList(builddir)
-        shutil.copy2(currentSettingsFilePath, lastSettingsFilePath)
+
+    shutil.copy2(currentSettingsFilePath, lastSettingsFilePath)
 
     cmdline = """ {cmdline} cd {blddir}; {prefixrun} ninja;
         """.format(cmdline = cmdline, blddir = builddir, prefixrun = params['prefix-run'])

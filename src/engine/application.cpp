@@ -40,6 +40,7 @@ Application::~Application()
 int Application::run(const CmdLineArgs& cmdLineArgs)
 {
     JRM_UNUSED(cmdLineArgs);
+
     printf("Application::run\n");
     int exitCode = EXIT_FAILURE;
     return exitCode;
@@ -47,8 +48,6 @@ int Application::run(const CmdLineArgs& cmdLineArgs)
 
 void Application::sayStop()
 {
-    // after that all threads must be stopped
-    //_engine.sayStop();
 }
 
 } // namespace jrm
