@@ -8,7 +8,8 @@ if sys.hexversion < 0x2070ef0:
 
 import argparse
 import subprocess
-from collections import defaultdict
+import shutil
+import filecmp
 
 # Avoid writing .pyc files
 sys.dont_write_bytecode = True
@@ -35,6 +36,7 @@ buildsymlink = getPath(settings.buildsymlink)
 srcroot      = getPath(settings.srcroot)
 
 def getFileList():
+    # I know this is not fastest way but it works in any version of python
     from glob import glob
     fileList = [y for x in os.walk(srcroot) for y in glob(os.path.join(x[0], '*.cpp'))]
     fileList.sort()
@@ -51,23 +53,38 @@ def saveFileList(builddir):
         os.rename(fileListPathNameNew, fileListPathName)
         return True
 
-    import filecmp
     isEqual = filecmp.cmp(fileListPathNameNew, fileListPathName)
     os.remove(fileListPathName)
     os.rename(fileListPathNameNew, fileListPathName)
     return not isEqual
 
-def doBuild(buildtype):
-    params = getattr(settings, buildtype)
+def genMesonCmdLine(buildparams, builddir, mesoncmd):
 
     env = ''
-    if params['toolset'] == 'clang':
+    if buildparams['toolset'] == 'clang':
         env = "CC=clang CXX=clang++"
-    elif params['toolset'] == 'gcc':
+    elif buildparams['toolset'] == 'gcc':
         env = "CC=gcc CXX=g++"
     else:
-        print("Unknown toolset: %s" % params['toolset'])
-        return 1
+        print("Unknown toolset: %s" % buildparams['toolset'])
+
+    env = env + ' CXXFLAGS="%s"' % buildparams['cxx-flags']
+    mesonargs = buildparams['meson-args']
+
+    # I use 'plain' because for 'debug' and 'release' buid types meson
+    # thinks that it knows which flags I need better than me
+    mesonargs = mesonargs + " --werror --buildtype=plain"
+
+    cmdline = """
+        cd {mesondir};
+        {env} {prefixrun} {mesoncmd} {mesonargs} {blddir};
+        """.format(env = env, mesondir = currentdir, mesonargs = mesonargs, mesoncmd = mesoncmd,
+            blddir = builddir, prefixrun = buildparams['prefix-run'])
+
+    return cmdline
+
+def doBuild(buildtype):
+    params = getattr(settings, buildtype)
 
     if not os.path.exists(buildroot):
         os.makedirs(buildroot)
@@ -76,24 +93,25 @@ def doBuild(buildtype):
 
     #builddir = os.path.join(buildroot, buildtype)
     builddir = os.path.join(buildroot, "%s-%s" % (buildtype, params['toolset']))
+    lastSettingsFilePath    = os.path.join(builddir, 'settings.py')
+    currentSettingsFilePath = os.path.join(currentdir, 'settings.py')
 
     cmdline = ""
-    if not os.path.exists(builddir):
-        mesonargs = params['meson-args']
-        mesonargs = mesonargs + " --buildtype=" + buildtype
-        cmdline = """
-            cd {mesondir};
-            {env} {prefixrun} meson {mesonargs} {blddir};
-            """.format(env = env, mesondir = currentdir, mesonargs = mesonargs, blddir = builddir,
-                prefixrun = params['prefix-run'])
+    if os.path.exists(builddir):
+        needToConfigure = saveFileList(builddir)
+        if not needToConfigure:
+            needToConfigure = not filecmp.cmp(currentSettingsFilePath, lastSettingsFilePath)
+        shutil.copy2(currentSettingsFilePath, lastSettingsFilePath)
 
+        if needToConfigure:
+            # touching of meson.build doesn't work for my case so I need to delete build directory
+            shutil.rmtree(builddir, ignore_errors = True)
+
+    if not os.path.exists(builddir):
+        cmdline = genMesonCmdLine(params, builddir, 'meson')
         os.makedirs(builddir)
         saveFileList(builddir)
-    else:
-        listWasChanged = saveFileList(builddir)
-        if listWasChanged:
-            # touch file meson.build
-            os.utime(os.path.join(currentdir, 'meson.build'), None)
+        shutil.copy2(currentSettingsFilePath, lastSettingsFilePath)
 
     cmdline = """ {cmdline} cd {blddir}; {prefixrun} ninja;
         """.format(cmdline = cmdline, blddir = builddir, prefixrun = params['prefix-run'])
@@ -107,7 +125,6 @@ def doCleanUp():
         os.remove(buildsymlink)
 
     if os.path.exists(buildroot):
-        import shutil
         shutil.rmtree(buildroot, ignore_errors = True)
 
     return 0
