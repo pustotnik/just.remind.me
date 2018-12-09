@@ -17,38 +17,9 @@
     along with just.remind.me.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <cassert>
+#ifndef __JUSTREMINDME_MACROS_H__
+#define __JUSTREMINDME_MACROS_H__
 
-//#include "tclap/CmdLine.h"
+#define JRM_UNUSED(x) (void)(x)
 
-#include "macros.h"
-#include "application.h"
-
-//namespace tclap = TCLAP;
-
-namespace jrm
-{
-
-Application::Application()
-{
-}
-
-Application::~Application()
-{
-}
-
-int Application::run(const CmdLineArgs& cmdLineArgs)
-{
-    JRM_UNUSED(cmdLineArgs);
-    printf("Application::run\n");
-    int exitCode = EXIT_FAILURE;
-    return exitCode;
-}
-
-void Application::sayStop()
-{
-    // after that all threads must be stopped
-    //_engine.sayStop();
-}
-
-} // namespace jrm
+#endif // __JUSTREMINDME_MACROS_H__

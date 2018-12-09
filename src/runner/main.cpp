@@ -14,7 +14,7 @@
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+    along with just.remind.me.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include <cstdlib>
@@ -25,7 +25,7 @@
 
 jrm::Application theApp;
 
-void stopWorkOnSignal(int signal)
+void stopWorkOnSignal(int /*signal*/)
 {
     theApp.sayStop();
 }
