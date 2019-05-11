@@ -1,0 +1,44 @@
+#!/usr/bin/env python
+# coding=utf8
+#
+
+import sys, os
+
+from waflib import Options
+
+# load settings
+# Avoid writing .pyc files
+sys.dont_write_bytecode = True
+import settings
+sys.dont_write_bytecode = False
+
+# these variables are mandatory ('/' are converted automatically)
+top = settings.PROJECTROOT
+out = settings.BUILDSYMLINK
+
+projectName   = 'just.remind.me'
+engineLibName = 'jrm-engine'
+runnerName    = 'runner'
+
+def options(opt):
+    opt.load('compiler_cxx')
+
+def configure(ctx):
+    # See details here: https://gitlab.com/ita1024/waf/issues/1563
+    ctx.env.NO_LOCK_IN_RUN = True
+    ctx.env.NO_LOCK_IN_TOP = True
+
+    ctx.load('compiler_cxx')
+    #ctx.check(header_name='stdio.h', features='cxx cxxprogram', mandatory=False)
+    ctx.check(header_name='cstdio', features='cxx cxxprogram', mandatory=True)
+
+def build(ctx):
+
+    ctx.shlib(source = ctx.path.parent.ant_glob('src/engine/**/*.cpp'),
+                target = engineLibName, vnum = '0.0.1')
+    ctx.program(source = ctx.path.parent.ant_glob('src/runner/**/*.cpp'),
+                features='cxx cxxprogram', target = runnerName, use = engineLibName,
+                includes = '../src')
+
+def ping(ctx):
+    print('ping')
