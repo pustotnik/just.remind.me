@@ -16,7 +16,7 @@ sys.dont_write_bytecode = True
 currentdir = os.path.dirname(os.path.abspath(sys.argv[0]))
 
 # load settings
-sys.path.insert(0, os.getcwd())
+sys.path.insert(0, currentdir)
 import settings
 
 def getPath(path):

@@ -29,7 +29,7 @@ debug = BuildTypeConf(
         mesonargs = '',
         cxxflags  = '%s %s' % (common['cxx-flags'], '-O1 -g -fno-omit-frame-pointer -fsanitize=address'),
         linkflags = '',
-        # meson pushs cxxflags to ldflags (why?) and as result the adding of -fsanitize=address here produces
+        # meson pushs cxxflags into ldflags (why?) and as result the adding of -fsanitize=address here produces
         # warning "DEPRECATION: Duplicated values in array option "cpp_link_args" is deprecated"
         #linkflags = '-fsanitize=address',
     ),
