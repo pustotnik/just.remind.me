@@ -1,12 +1,14 @@
 # coding=utf8
 #
 
+import sys, os
 from collections import namedtuple
 
-BUILDROOT    = "/tmp/$USER/projects/just.remind.me/build-out"
-BUILDSYMLINK = "../build-out"
 PROJECTROOT  = ".."
-SRCROOT      = "../src"
+PROJECTNAME  = 'just.remind.me'
+BUILDROOT    = "/tmp/$USER/projects/%s/build-out" % PROJECTNAME
+BUILDSYMLINK = os.path.join(PROJECTROOT, "build-out")
+SRCROOT      = os.path.join(PROJECTROOT, "src")
 
 BuildParams   = namedtuple('BuildParams', 'prefixrun, wafargs, cxxflags, linkflags')
 BuildTypeConf = namedtuple('BuildTypeConf', 'gcc, clang')

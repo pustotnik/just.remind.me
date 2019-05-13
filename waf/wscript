@@ -3,30 +3,59 @@
 #
 
 import sys, os
+import shutil
 
-from waflib import Options
+from waflib import Options, Logs
 
-# load settings
 # Avoid writing .pyc files
 sys.dont_write_bytecode = True
-import settings
-sys.dont_write_bytecode = False
+import buildconf
+import utils
+
+PROJECTNAME  = buildconf.PROJECTNAME
+BUILDROOT    = utils.unfoldPath(buildconf.BUILDROOT)
+BUILDSYMLINK = utils.unfoldPath(buildconf.BUILDSYMLINK)
+PROJECTROOT  = utils.unfoldPath(buildconf.PROJECTROOT)
 
 # these variables are mandatory ('/' are converted automatically)
-top = settings.PROJECTROOT
-out = settings.BUILDSYMLINK
+top = PROJECTROOT
+out = BUILDSYMLINK
 
-projectName   = 'just.remind.me'
+# FIXME: move to buildconf
 engineLibName = 'jrm-engine'
 runnerName    = 'runner'
 
+"""
+TODO: see waflib/extras/pyqt5.py
+"""
+
+def prepareBuildDir():
+    if not os.path.exists(BUILDROOT):
+        os.makedirs(BUILDROOT)
+    if BUILDSYMLINK and not os.path.exists(BUILDSYMLINK):
+        os.symlink(BUILDROOT, BUILDSYMLINK)
+
 def options(opt):
+    prepareBuildDir()
+
     opt.load('compiler_cxx')
 
 def configure(ctx):
+
     # See details here: https://gitlab.com/ita1024/waf/issues/1563
     ctx.env.NO_LOCK_IN_RUN = True
-    ctx.env.NO_LOCK_IN_TOP = True
+
+    """
+    TODO: think about:
+    With NO_LOCK_IN_TOP = True this doesn't work:
+    # ./waf/make.py configure
+    # ./waf/make.py build
+    # The project was not configured: run "waf configure" first!
+    BUT this works:
+    ./waf/make.py configure build
+    So I can use NO_LOCK_IN_TOP = True if I use 'configure' every time before 'build'
+    """
+    #ctx.env.NO_LOCK_IN_TOP = True
 
     ctx.load('compiler_cxx')
     #ctx.check(header_name='stdio.h', features='cxx cxxprogram', mandatory=False)
@@ -38,7 +67,20 @@ def build(ctx):
                 target = engineLibName, vnum = '0.0.1')
     ctx.program(source = ctx.path.parent.ant_glob('src/runner/**/*.cpp'),
                 features='cxx cxxprogram', target = runnerName, use = engineLibName,
-                includes = '../src')
+                includes = buildconf.SRCROOT)
 
-def ping(ctx):
-    print('ping')
+def distclean(ctx):
+    # Default implemention doesn't work if 'ctx.env.NO_LOCK_IN_TOP == True' because of bug
+
+    if BUILDSYMLINK and os.path.islink(BUILDSYMLINK) and os.path.lexists(BUILDSYMLINK):
+        Logs.info("Removing symlink '%s'" % BUILDSYMLINK)
+        os.remove(BUILDSYMLINK)
+
+    if os.path.exists(BUILDROOT):
+        Logs.info("Removing directory '%s'" % BUILDROOT)
+        shutil.rmtree(BUILDROOT, ignore_errors = True)
+
+    lockfile = os.path.join(PROJECTROOT, Options.lockfile)
+    if os.path.exists(lockfile):
+        Logs.info("Removing lockfile '%s'" % lockfile)
+        os.remove(lockfile)
