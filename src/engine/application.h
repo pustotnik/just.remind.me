@@ -20,7 +20,7 @@
 #ifndef __JUSTREMINDME_APPLICATION_H__
 #define __JUSTREMINDME_APPLICATION_H__
 
-#include "boost/utility.hpp"
+//#include "boost/utility.hpp"
 
 #include "types.h"
 
@@ -28,7 +28,7 @@ namespace jrm
 {
 
 /// Not thread safe
-class Application: private boost::noncopyable
+class Application//: private boost::noncopyable
 {
 public:
 

@@ -5,6 +5,9 @@
 import sys, os
 import shutil
 
+joinpath  = os.path.join
+abspath   = os.path.abspath
+
 from waflib import Options, Logs
 
 # Avoid writing .pyc files
@@ -25,20 +28,44 @@ out = BUILDSYMLINK
 engineLibName = 'jrm-engine'
 runnerName    = 'runner'
 
+BUILD_TYPES = ('debug', 'release')
+COMPILES    = ('gcc', 'clang')
+
 """
 TODO: see waflib/extras/pyqt5.py
 """
 
 def prepareBuildDir():
+
+    if len(Options.commands) == 1 and Options.commands[0] == 'distclean':
+        return
+
     if not os.path.exists(BUILDROOT):
         os.makedirs(BUILDROOT)
     if BUILDSYMLINK and not os.path.exists(BUILDSYMLINK):
         os.symlink(BUILDROOT, BUILDSYMLINK)
 
+def makeTargetPath(ctx, targetName):
+    return joinpath(ctx.out_dir, targetName)
+
+"""
+    WAF routines
+"""
 def options(opt):
+    #prepareBuildDir()
+    opt.load('compiler_cxx')
+
+def init(ctx):
     prepareBuildDir()
 
-    opt.load('compiler_cxx')
+    #from waflib.Build import BuildContext, CleanContext, InstallContext, UninstallContext
+
+    #for bt in BUILD_TYPES:
+    #    for c in (BuildContext, CleanContext, InstallContext, UninstallContext):
+    #        name = c.__name__.replace('Context','').lower()
+    #        class cls(c):
+    #            #cmd     = name + '_' + bt
+    #            variant = bt
 
 def configure(ctx):
 
@@ -57,20 +84,48 @@ def configure(ctx):
     """
     #ctx.env.NO_LOCK_IN_TOP = True
 
+    """
+    for bt in BUILD_TYPES:
+        for compiler in COMPILES:
+            #variant = bt + '-' + compiler
+            variant = bt
+            ctx.setenv(variant)
+
+            if bt == 'debug':
+                ctx.env.CXXFLAGS = ['-g']
+            else:
+                ctx.env.CXXFLAGS = ['-O2']
+    """
+
+    # ???
     ctx.load('compiler_cxx')
+
     #ctx.check(header_name='stdio.h', features='cxx cxxprogram', mandatory=False)
     ctx.check(header_name='cstdio', features='cxx cxxprogram', mandatory=True)
 
 def build(ctx):
 
     ctx.shlib(source = ctx.path.parent.ant_glob('src/engine/**/*.cpp'),
-                target = engineLibName, vnum = '0.0.1')
+                target = makeTargetPath(ctx, engineLibName),
+                name = engineLibName,
+                #features='cxx cxxshlib',
+                includes = buildconf.SRCROOT,
+                vnum = '0.0.1')
+
     ctx.program(source = ctx.path.parent.ant_glob('src/runner/**/*.cpp'),
-                features='cxx cxxprogram', target = runnerName, use = engineLibName,
+                features='cxx cxxprogram',
+                target = makeTargetPath(ctx, runnerName),
+                #target = ctx.path.parent.get_bld().make_node(runnerName),
+                use = engineLibName,
                 includes = buildconf.SRCROOT)
 
 def distclean(ctx):
+
     # Default implemention doesn't work if 'ctx.env.NO_LOCK_IN_TOP == True' because of bug
+
+    if BUILDSYMLINK and os.path.isdir(BUILDSYMLINK) and os.path.exists(BUILDSYMLINK):
+        Logs.info("Removing directory '%s'" % BUILDSYMLINK)
+        shutil.rmtree(BUILDSYMLINK, ignore_errors = True)
 
     if BUILDSYMLINK and os.path.islink(BUILDSYMLINK) and os.path.lexists(BUILDSYMLINK):
         Logs.info("Removing symlink '%s'" % BUILDSYMLINK)
@@ -84,3 +139,11 @@ def distclean(ctx):
     if os.path.exists(lockfile):
         Logs.info("Removing lockfile '%s'" % lockfile)
         os.remove(lockfile)
+
+    lockfile = os.path.join(PROJECTROOT, 'waf', Options.lockfile)
+    if os.path.exists(lockfile):
+        Logs.info("Removing lockfile '%s'" % lockfile)
+        os.remove(lockfile)
+
+    if len(Options.commands) > 0:
+        prepareBuildDir()
