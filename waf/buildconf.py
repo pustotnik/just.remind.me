@@ -7,14 +7,41 @@ from collections import namedtuple
 joinpath  = os.path.join
 abspath   = os.path.abspath
 
-PROJECTROOT  = ".."
 PROJECTNAME  = 'just.remind.me'
+VERSION      = '0.0.1'
+PROJECTROOT  = ".."
 BUILDROOT    = "/tmp/$USER/projects/%s/build-out" % PROJECTNAME
 BUILDSYMLINK = joinpath(PROJECTROOT, "build-out")
 SRCROOT      = joinpath(PROJECTROOT, "src")
 
 DEFAULT_BUILD_TYPE = 'debug'
 
+# Execute the configuration automatically
+AUTO_CONFIGURE = True
+
+#############################################
+"""
+subproject {
+    type = cxxprogram cxxshlib ...
+    sources =
+    target =
+    includes =
+    local-libs =
+    sys-libs =
+    sys-lib-path =
+    buildtypes {
+        release-gcc {
+            compiler = g++
+            cxxflags
+            linkflags
+            defines
+        }
+    }
+}
+"""
+
+
+#############################################
 BuildParams   = namedtuple('BuildParams', 'prefixrun, wafargs, cxxflags, linkflags')
 BuildTypeConf = namedtuple('BuildTypeConf', 'gcc, clang')
 

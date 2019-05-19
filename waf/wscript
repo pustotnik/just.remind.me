@@ -8,7 +8,7 @@ import shutil
 joinpath  = os.path.join
 abspath   = os.path.abspath
 
-from waflib import Options, Logs
+from waflib import Configure, Build, Options, Logs
 
 # Avoid writing .pyc files
 sys.dont_write_bytecode = True
@@ -24,12 +24,21 @@ PROJECTROOT  = utils.unfoldPath(buildconf.PROJECTROOT)
 top = PROJECTROOT
 out = BUILDSYMLINK
 
+APPNAME = buildconf.PROJECTNAME
+VERSION = buildconf.VERSION
+
 # FIXME: move to buildconf
 engineLibName = 'jrm-engine'
 runnerName    = 'runner'
 
 BUILD_TYPES = ('debug', 'release')
-COMPILES    = ('gcc', 'clang')
+COMPILERS   = ('g++', 'clang++')
+COMPILER = 'clang++'
+#COMPILER = 'g++'
+#COMPILER = 'compiler_cxx'
+
+# Execute the configuration automatically
+Configure.autoconfig = buildconf.AUTO_CONFIGURE if hasattr(buildconf, 'AUTO_CONFIGURE') else False
 
 """
 TODO: see waflib/extras/pyqt5.py
@@ -46,26 +55,28 @@ def prepareBuildDir():
         os.symlink(BUILDROOT, BUILDSYMLINK)
 
 def makeTargetPath(ctx, targetName):
-    return joinpath(ctx.out_dir, targetName)
+    #return joinpath(targetName)
+    return joinpath(ctx.out_dir, ctx.variant, targetName)
 
 """
     WAF routines
 """
+
 def options(opt):
-    #prepareBuildDir()
-    opt.load('compiler_cxx')
+    opt.add_option('-b', '--buildtype', action = 'store', choices = BUILD_TYPES,
+                    default = buildconf.DEFAULT_BUILD_TYPE,
+                    help = 'set the build type')
+    #opt.load('compiler_cxx')
+    #opt.load(COMPILER)
 
 def init(ctx):
     prepareBuildDir()
 
-    #from waflib.Build import BuildContext, CleanContext, InstallContext, UninstallContext
-
-    #for bt in BUILD_TYPES:
-    #    for c in (BuildContext, CleanContext, InstallContext, UninstallContext):
-    #        name = c.__name__.replace('Context','').lower()
-    #        class cls(c):
-    #            #cmd     = name + '_' + bt
-    #            variant = bt
+    for c in (Build.BuildContext, Build.CleanContext, Build.InstallContext, Build.UninstallContext):
+        #name = c.__name__.replace('Context','').lower()
+        class CtxClass(c):
+            #cmd     = name + '-' + bt
+            variant = Options.options.buildtype
 
 def configure(ctx):
 
@@ -90,33 +101,61 @@ def configure(ctx):
             #variant = bt + '-' + compiler
             variant = bt
             ctx.setenv(variant)
-
             if bt == 'debug':
                 ctx.env.CXXFLAGS = ['-g']
             else:
                 ctx.env.CXXFLAGS = ['-O2']
-    """
+    #"""
 
-    # ???
-    ctx.load('compiler_cxx')
+    #ctx.load('compiler_cxx')
+    #ctx.load(COMPILER)
+
+    defaultEnv = ctx.env.derive()
+    ctx.setenv('debug', env = defaultEnv)
+    ctx.load('g++')
+    ctx.setenv('release', env = defaultEnv)
+    ctx.load('clang++')
 
     #ctx.check(header_name='stdio.h', features='cxx cxxprogram', mandatory=False)
     ctx.check(header_name='cstdio', features='cxx cxxprogram', mandatory=True)
 
 def build(ctx):
 
+    if not ctx.variant:
+        ctx.fatal('No variant!')
+
+    #print(ctx.env)
+    #print(ctx.all_envs)
+
+    cxxflags = '-pthread -std=c++17 -Wall -Wextra -Woverloaded-virtual' + \
+                ' -Wunreachable-code -Wvla -O0 -g -fno-omit-frame-pointer'
+
     ctx.shlib(source = ctx.path.parent.ant_glob('src/engine/**/*.cpp'),
                 target = makeTargetPath(ctx, engineLibName),
                 name = engineLibName,
-                #features='cxx cxxshlib',
+                features='cxx cxxshlib',
                 includes = buildconf.SRCROOT,
-                vnum = '0.0.1')
+                #cxxflags  = '-O3',
+                cxxflags  = cxxflags,
+                lib = ['m', 'rt', 'pthread'],
+                vnum = VERSION)
+
+    #ctx.variant = 'release'
 
     ctx.program(source = ctx.path.parent.ant_glob('src/runner/**/*.cpp'),
                 features='cxx cxxprogram',
                 target = makeTargetPath(ctx, runnerName),
-                #target = ctx.path.parent.get_bld().make_node(runnerName),
                 use = engineLibName,
+                #lib = ['m', 'rt', 'pthread'],
+
+                #defines      = ['LINUX=1', 'BIDULE'],
+                #lib          = ['m'],
+                #libpath      = ['/usr/lib'],
+                #rpath        = ['/opt/kde/lib'],
+                #idx          = 123, # Setting the counter for the object file extension is sometimes necessary to avoid object file name collisions
+                #install_path = '${SOME_PATH}/bin',
+
+                cxxflags  = cxxflags,
                 includes = buildconf.SRCROOT)
 
 def distclean(ctx):
