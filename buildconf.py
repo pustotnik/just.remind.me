@@ -9,7 +9,8 @@ abspath   = os.path.abspath
 
 PROJECTNAME  = 'just.remind.me'
 VERSION      = '0.0.1'
-PROJECTROOT  = ".."
+PROJECTROOT  = "."
+# FIXME: this path is POSIX only
 BUILDROOT    = "/tmp/$USER/projects/%s/build-out" % PROJECTNAME
 BUILDSYMLINK = joinpath(PROJECTROOT, "build-out")
 SRCROOT      = joinpath(PROJECTROOT, "src")

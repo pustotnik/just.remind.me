@@ -22,6 +22,7 @@ def main():
     # is located and utils.SCRIPTS_ROOTDIR is directory where file wscript is located.
     cwd = SCRIPTS_ROOTDIR
     Scripting.waf_entry_point(cwd, WAF_VERSION, WAF_DIR)
+    return 0
 
 if __name__ == '__main__':
     sys.exit(main())

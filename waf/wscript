@@ -15,10 +15,13 @@ sys.dont_write_bytecode = True
 import buildconf
 import utils
 
+BUILDCONF_DIR = os.path.dirname(abspath(buildconf.__file__))
+
 PROJECTNAME  = buildconf.PROJECTNAME
-BUILDROOT    = utils.unfoldPath(buildconf.BUILDROOT)
-BUILDSYMLINK = utils.unfoldPath(buildconf.BUILDSYMLINK)
-PROJECTROOT  = utils.unfoldPath(buildconf.PROJECTROOT)
+BUILDROOT    = utils.unfoldPath(BUILDCONF_DIR, buildconf.BUILDROOT)
+BUILDSYMLINK = utils.unfoldPath(BUILDCONF_DIR, buildconf.BUILDSYMLINK)
+PROJECTROOT  = utils.unfoldPath(BUILDCONF_DIR, buildconf.PROJECTROOT)
+SRCROOT      = utils.unfoldPath(BUILDCONF_DIR, buildconf.SRCROOT)
 
 # these variables are mandatory ('/' are converted automatically)
 top = PROJECTROOT
@@ -134,7 +137,7 @@ def build(ctx):
                 target = makeTargetPath(ctx, engineLibName),
                 name = engineLibName,
                 features='cxx cxxshlib',
-                includes = buildconf.SRCROOT,
+                includes = SRCROOT,
                 #cxxflags  = '-O3',
                 cxxflags  = cxxflags,
                 lib = ['m', 'rt', 'pthread'],
@@ -156,7 +159,7 @@ def build(ctx):
                 #install_path = '${SOME_PATH}/bin',
 
                 cxxflags  = cxxflags,
-                includes = buildconf.SRCROOT)
+                includes = SRCROOT)
 
 def distclean(ctx):
 
