@@ -14,9 +14,9 @@ def main():
 
     # Avoid writing .pyc files
     sys.dont_write_bytecode = True
-    import make
+    import starter
     sys.dont_write_bytecode = False
-    return make.main()
+    return starter.main()
 
 
 if __name__ == '__main__':

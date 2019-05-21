@@ -5,30 +5,18 @@
 import sys, os
 import shutil
 
-joinpath  = os.path.join
-abspath   = os.path.abspath
+_joinpath  = os.path.join
+_abspath   = os.path.abspath
 
-from waflib import Configure, Build, Options, Logs
+from waflib import Configure, Build, Options, Context, Logs
 
 # Avoid writing .pyc files
 sys.dont_write_bytecode = True
 import buildconf
-import utils
+import assist
+sys.dont_write_bytecode = False
 
-BUILDCONF_DIR = os.path.dirname(abspath(buildconf.__file__))
-
-PROJECTNAME  = buildconf.PROJECTNAME
-BUILDROOT    = utils.unfoldPath(BUILDCONF_DIR, buildconf.BUILDROOT)
-BUILDSYMLINK = utils.unfoldPath(BUILDCONF_DIR, buildconf.BUILDSYMLINK)
-PROJECTROOT  = utils.unfoldPath(BUILDCONF_DIR, buildconf.PROJECTROOT)
-SRCROOT      = utils.unfoldPath(BUILDCONF_DIR, buildconf.SRCROOT)
-
-# these variables are mandatory ('/' are converted automatically)
-top = PROJECTROOT
-out = BUILDSYMLINK
-
-APPNAME = buildconf.PROJECTNAME
-VERSION = buildconf.VERSION
+#WAF_DIR = Context.waf_dir
 
 # FIXME: move to buildconf
 engineLibName = 'jrm-engine'
@@ -47,23 +35,25 @@ Configure.autoconfig = buildconf.AUTO_CONFIGURE if hasattr(buildconf, 'AUTO_CONF
 TODO: see waflib/extras/pyqt5.py
 """
 
-def prepareBuildDir():
+# WAF detected any our function as command and you can find it with --help.
+# So I decided to make such a 'namespace'
+class tools:
 
-    if len(Options.commands) == 1 and Options.commands[0] == 'distclean':
-        return
-
-    if not os.path.exists(BUILDROOT):
-        os.makedirs(BUILDROOT)
-    if BUILDSYMLINK and not os.path.exists(BUILDSYMLINK):
-        os.symlink(BUILDROOT, BUILDSYMLINK)
-
-def makeTargetPath(ctx, targetName):
-    #return joinpath(targetName)
-    return joinpath(ctx.out_dir, ctx.variant, targetName)
+    @staticmethod
+    def makeTargetPath(ctx, targetName):
+        #return _joinpath(targetName)
+        return _joinpath(ctx.out_dir, ctx.variant, targetName)
 
 """
     WAF routines
 """
+
+# these variables are mandatory ('/' are converted automatically)
+top = assist.BUILDROOT
+out = _joinpath(assist.BUILDROOT, 'out')
+
+APPNAME = buildconf.PROJECTNAME
+VERSION = buildconf.VERSION
 
 def options(opt):
     opt.add_option('-b', '--buildtype', action = 'store', choices = BUILD_TYPES,
@@ -73,7 +63,8 @@ def options(opt):
     #opt.load(COMPILER)
 
 def init(ctx):
-    prepareBuildDir()
+    from copy import deepcopy
+    assist.wafcommands = deepcopy(Options.commands)
 
     for c in (Build.BuildContext, Build.CleanContext, Build.InstallContext, Build.UninstallContext):
         #name = c.__name__.replace('Context','').lower()
@@ -84,7 +75,7 @@ def init(ctx):
 def configure(ctx):
 
     # See details here: https://gitlab.com/ita1024/waf/issues/1563
-    ctx.env.NO_LOCK_IN_RUN = True
+    #ctx.env.NO_LOCK_IN_RUN = True
 
     """
     TODO: think about:
@@ -129,15 +120,25 @@ def build(ctx):
 
     #print(ctx.env)
     #print(ctx.all_envs)
+    #print(ctx.path.abspath())
+    #print(ctx.root.abspath())
 
     cxxflags = '-pthread -std=c++17 -Wall -Wextra -Woverloaded-virtual' + \
                 ' -Wunreachable-code -Wvla -O0 -g -fno-omit-frame-pointer'
 
-    ctx.shlib(source = ctx.path.parent.ant_glob('src/engine/**/*.cpp'),
-                target = makeTargetPath(ctx, engineLibName),
+    #ctx.root.find_dir
+    #ctx(source = tools.collectFilesWithWildcard(_joinpath(SRCROOT, 'engine'), '*.cpp'),
+    #ctx(source = '../../just.remind.me/src/engine/application.cpp',
+    #ctx(source = ctx.path.parent.ant_glob('src/engine/**/*.cpp'),
+    #print(_joinpath(SRCROOT, 'engine') + '/**/*.cpp')
+    #ctx(source = ctx.root.ant_glob((_joinpath(SRCSYMLINK, 'engine') + '/**/*.cpp')[1:]),
+    ctx(source = ctx.path.ant_glob('%s/engine/**/*.cpp' % assist.SRCSYMLINKNAME),
+    #ctx.shlib(source = ctx.path.parent.ant_glob('src/engine/**/*.cpp'),
+                target = tools.makeTargetPath(ctx, engineLibName),
                 name = engineLibName,
                 features='cxx cxxshlib',
-                includes = SRCROOT,
+                #includes = SRCROOT,
+                includes = assist.SRCSYMLINK,
                 #cxxflags  = '-O3',
                 cxxflags  = cxxflags,
                 lib = ['m', 'rt', 'pthread'],
@@ -145,9 +146,11 @@ def build(ctx):
 
     #ctx.variant = 'release'
 
-    ctx.program(source = ctx.path.parent.ant_glob('src/runner/**/*.cpp'),
+    #ctx(source = ctx.path.parent.ant_glob('src/runner/**/*.cpp'),
+    ctx(source = ctx.path.ant_glob('%s/runner/**/*.cpp' % assist.SRCSYMLINKNAME),
+    #ctx.program(source = ctx.path.parent.ant_glob('src/runner/**/*.cpp'),
                 features='cxx cxxprogram',
-                target = makeTargetPath(ctx, runnerName),
+                target = tools.makeTargetPath(ctx, runnerName),
                 use = engineLibName,
                 #lib = ['m', 'rt', 'pthread'],
 
@@ -159,33 +162,4 @@ def build(ctx):
                 #install_path = '${SOME_PATH}/bin',
 
                 cxxflags  = cxxflags,
-                includes = SRCROOT)
-
-def distclean(ctx):
-
-    # Default implemention doesn't work if 'ctx.env.NO_LOCK_IN_TOP == True' because of bug
-
-    if BUILDSYMLINK and os.path.isdir(BUILDSYMLINK) and os.path.exists(BUILDSYMLINK):
-        Logs.info("Removing directory '%s'" % BUILDSYMLINK)
-        shutil.rmtree(BUILDSYMLINK, ignore_errors = True)
-
-    if BUILDSYMLINK and os.path.islink(BUILDSYMLINK) and os.path.lexists(BUILDSYMLINK):
-        Logs.info("Removing symlink '%s'" % BUILDSYMLINK)
-        os.remove(BUILDSYMLINK)
-
-    if os.path.exists(BUILDROOT):
-        Logs.info("Removing directory '%s'" % BUILDROOT)
-        shutil.rmtree(BUILDROOT, ignore_errors = True)
-
-    lockfile = os.path.join(PROJECTROOT, Options.lockfile)
-    if os.path.exists(lockfile):
-        Logs.info("Removing lockfile '%s'" % lockfile)
-        os.remove(lockfile)
-
-    lockfile = os.path.join(PROJECTROOT, 'waf', Options.lockfile)
-    if os.path.exists(lockfile):
-        Logs.info("Removing lockfile '%s'" % lockfile)
-        os.remove(lockfile)
-
-    if len(Options.commands) > 0:
-        prepareBuildDir()
+                includes = assist.SRCROOT)

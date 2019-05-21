@@ -11,8 +11,8 @@ PROJECTNAME  = 'just.remind.me'
 VERSION      = '0.0.1'
 PROJECTROOT  = "."
 # FIXME: this path is POSIX only
-BUILDROOT    = "/tmp/$USER/projects/%s/build-out" % PROJECTNAME
-BUILDSYMLINK = joinpath(PROJECTROOT, "build-out")
+BUILDROOT    = "/tmp/$USER/projects/%s/build" % PROJECTNAME
+BUILDSYMLINK = joinpath(PROJECTROOT, "build")
 SRCROOT      = joinpath(PROJECTROOT, "src")
 
 DEFAULT_BUILD_TYPE = 'debug'
@@ -30,6 +30,7 @@ subproject {
     local-libs =
     sys-libs =
     sys-lib-path =
+    environment =
     buildtypes {
         release-gcc {
             compiler = g++
@@ -40,7 +41,15 @@ subproject {
     }
 }
 """
+config = {
+    'jrm-engine' : {
+        'features' : 'cxx cxxshlib',
+        'source'   : "antglob: ''",
+    },
+    'runner' : {
 
+    }
+}
 
 #############################################
 BuildParams   = namedtuple('BuildParams', 'prefixrun, wafargs, cxxflags, linkflags')
