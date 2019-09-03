@@ -1,0 +1,21 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build
+dist/
+downloads/
+
+# Translations
+*.mo
+*.pot
+
+.lock-wafbuild
+.vscode
+.pytest_cache/
+.coverage
+htmlcov/
+*.code-workspace
+*.geany
